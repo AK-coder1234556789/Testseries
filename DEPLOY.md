@@ -1,12 +1,16 @@
-# TestSeries — GitHub + Vercel
+# TestSeries — Vercel deployment
 
-1. Upload the contents of this folder to the root of a GitHub repository.
-2. In Vercel, import that repository.
-3. Framework preset: Vite.
-4. Build command: `npm run build`.
-5. Output directory: `dist`.
-6. Deploy.
+This build is deliberately configured so Vercel does **not** run `tsc -b`. The previous deployment failed because Vercel could not see the `/src` input directory while TypeScript project references required it.
 
-Do not upload `.env` or secret API keys. The browser build is intentionally configured so AI secrets are not exposed client-side.
+## GitHub
+Upload the contents of this folder to the repository root. The important files are `index.html`, `main.jsx`, `App.jsx`, `data.js`, `styles.css`, `package.json`, `vite.config.ts`, and `vercel.json`.
 
-Firebase values, when used, should be supplied through Vercel Environment Variables and the application configuration in `src/firebase.ts` should be updated to read those variables.
+## Vercel
+- Framework: Vite
+- Build command: `npm run build`
+- Output directory: `dist`
+- Install command: `npm install`
+
+The build command is `vite build`, so the old `TS18003: No inputs were found in config file ... tsconfig.app.json` error is no longer part of deployment.
+
+The npm `allow-scripts` lines are warnings, not the build failure.
