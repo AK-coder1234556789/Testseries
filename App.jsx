@@ -95,14 +95,16 @@ function ToggleLine({title,desc,icon,red,purple,blue,button}){
 }
 
 function Instructions(){
- const nav=useNavigate(); return <div className="cbt"><CbtTop title="Instructions"/><div className="instruction-main"><h2>Please read the instructions carefully</h2><div className="instruction-meta"><span>◷ <b>TOTAL DURATION<br/><strong>180 Minutes</strong></b></span><span>▤ <b>TOTAL QUESTIONS<br/><strong>75</strong></b></span></div>
+ const nav=useNavigate();
+ const [agreed,setAgreed]=useState(true);
+ return <div className="cbt"><CbtTop title="Instructions"/><div className="instruction-main"><h2>Please read the instructions carefully</h2><div className="instruction-meta"><span>◷ <b>TOTAL DURATION<br/><strong>180 Minutes</strong></b></span><span>▤ <b>TOTAL QUESTIONS<br/><strong>75</strong></b></span></div>
  <ol>
   <li>The clock will be set at the server. The countdown timer in the top right corner will display the remaining time. When the timer reaches zero, the examination will end by itself.</li>
   <li>The Question Palette displayed on the right side of screen will show the status of each question using the symbols shown below.</li>
  </ol>
  <div className="legend-box"><LegendItem cls="notvisited" text="You have not visited the question yet."/><LegendItem cls="notanswered" text="You have not answered the question."/><LegendItem cls="answered" text="You have answered the question."/><LegendItem cls="marked" text="You have NOT answered the question, but have marked the question for review."/><LegendItem cls="ansmarked" text="Answered and Marked for Review will be considered for evaluation."/></div>
  <ol start={3}><li><b>Navigating to a Question:</b> Click a question number in the palette, use Save & Next, or Mark for Review & Next.</li><li><b>Answering a Question:</b> Select an option. Click it again or use Clear Response to deselect. Change answers by selecting another option.</li></ol>
- <div className="instruction-footer"><p>All the questions will appear in English language.</p><label><input type="checkbox"/> I have read and understood the instructions.</label><button className="nta-button disabled" onClick={()=>nav("/cbt/test")}>I am ready to begin</button></div>
+ <div className="instruction-footer"><p>All the questions will appear in English language.</p><label><input type="checkbox" checked={agreed} onChange={e=>setAgreed(e.target.checked)}/> I have read and understood the instructions.</label><button className={`nta-button ${!agreed ? "disabled" : ""}`} disabled={!agreed} onClick={()=>nav("/cbt/test")}>I am ready to begin</button></div>
  </div><div className="candidate-side"><div className="avatar">◉</div><b>akill</b></div></div>
 }
 function LegendItem({cls,text}){return <div><span className={"status "+cls}></span>{text}</div>}
@@ -110,9 +112,15 @@ function LegendItem({cls,text}){return <div><span className={"status "+cls}></sp
 function CbtTop({title}){return <div className="cbt-top"><b>{title}</b></div>}
 
 function CbtTest(){
- const [q,setQ]=useState(1); const [subject,setSubject]=useState("Physics"); const [answers,setAnswers]=useState({}); const [marked,setMarked]=useState(new Set()); const [visited,setVisited]=useState(new Set([1]));
+ const nav=useNavigate();
+ const [q,setQ]=useState(1);
+ const [subject,setSubject]=useState("Physics");
+ const [answers,setAnswers]=useState({});
+ const [marked,setMarked]=useState(new Set());
+ const [visited,setVisited]=useState(new Set([1]));
  const [time,setTime]=useState(2*3600+58*60+51);
- const current=demoQuestions.find(x=>x.number===q)!;
+ const [showSubmitModal,setShowSubmitModal]=useState(false);
+ const current=demoQuestions.find(x=>x.number===q) || demoQuestions[0];
  const subjects=["Physics","Chemistry","Mathematics"];
  const filtered=demoQuestions.filter(x=>x.subject===subject);
  const maxForSubject=25;
@@ -120,8 +128,15 @@ function CbtTest(){
  const status=(n)=>answers[n]?.length?"answered":marked.has(n)?"marked":visited.has(n)?"notanswered":"notvisited";
  const jump=(n)=>{setQ(n);setVisited(v=>new Set(v).add(n));};
  const next=()=>jump(Math.min(75,q+1));
+ const prev=()=>jump(Math.max(1,q-1));
  const fmt=`${String(Math.floor(time/3600)).padStart(2,"0")}:${String(Math.floor(time%3600/60)).padStart(2,"0")}:${String(time%60).padStart(2,"0")}`;
  useMemo(()=>{const t=setInterval(()=>setTime(v=>Math.max(0,v-1)),1000); return ()=>clearInterval(t)},[]);
+
+ const answeredCount = Object.values(answers).filter(x=>x && x.length > 0).length;
+ const markedCount = marked.size;
+ const notAnsweredCount = Math.max(0, visited.size - answeredCount);
+ const notVisitedCount = Math.max(0, 75 - visited.size);
+
  return <div className="cbt">
    <div className="cbt-browser">TestSeries | Physics Full Test — Set 01 <span>⌕  ⋮</span></div>
    <div className="cbt-header"><div className="exam-title">Physics Full Test — Set 01</div><div className="exam-actions">Accessibility &nbsp; Instructions &nbsp; Question Paper</div></div>
@@ -133,12 +148,80 @@ function CbtTest(){
       <div className="blue-strip"><span>View in : <select><option>English</option></select></span></div>
       <div className="question-scroll"><h3>Question No. {q}</h3><p className="qtext">{current.stem}</p>{current.asset&&<div className="asset-placeholder">[Original PDF diagram asset]</div>}
       {current.options?.map((o,i)=><label className={"option "+(answers[q]?.includes(String.fromCharCode(65+i))?"chosen":"")} key={o}><input type="radio" name={`q${q}`} checked={answers[q]?.includes(String.fromCharCode(65+i))||false} onChange={()=>setAnswer(String.fromCharCode(65+i))}/><span>{String.fromCharCode(65+i)}.</span>{o}</label>)}
-      {current.type==="NUMERICAL"&&<div className="numeric-entry"><input placeholder="Enter answer"/><div className="keypad">{["1","2","3","4","5","6","7","8","9","0",".","⌫"].map(k=><button key={k}>{k}</button>)}</div></div>}
+      {current.type==="NUMERICAL"&&<div className="numeric-entry">
+        <input placeholder="Enter answer" value={answers[q]?.[0] || ""} onChange={e=>setAnswers(prev=>({...prev,[q]:[e.target.value]}))}/>
+        <div className="keypad">
+          {["1","2","3","4","5","6","7","8","9","0",".","⌫"].map(k=><button key={k} type="button" onClick={()=>{
+            const val = answers[q]?.[0] || "";
+            if (k === "⌫") {
+              setAnswers(prev=>({...prev,[q]:[val.slice(0,-1)]}));
+            } else {
+              setAnswers(prev=>({...prev,[q]:[val + k]}));
+            }
+          }}>{k}</button>)}
+        </div>
+      </div>}
       </div>
-      <div className="cbt-actions"><button onClick={()=>{setMarked(m=>new Set(m).add(q));next()}}>Mark for Review & Next</button><button onClick={()=>setAnswers(a=>({...a,[q]:[]}))}>Clear Response</button><button onClick={next}>Previous</button><button className="save" onClick={next}>Save & Next</button></div>
+      <div className="cbt-actions">
+        <button onClick={()=>{setMarked(m=>new Set(m).add(q));next()}}>Mark for Review & Next</button>
+        <button onClick={()=>setAnswers(a=>({...a,[q]:[]}))}>Clear Response</button>
+        <button onClick={prev}>Previous</button>
+        <button className="save" onClick={next}>Save & Next</button>
+      </div>
     </main>
-    <aside className="palette"><div className="candidate"><div className="avatar">◉</div><b>akill</b></div><div className="state-grid"><State n={Object.values(answers).filter(x=>x.length).length} label="Answered" cls="answered"/><State n={75-visited.size-(Object.values(answers).filter(x=>x.length).length)} label="Not Answered" cls="notanswered"/><State n={75-visited.size} label="Not Visited" cls="notvisited"/><State n={marked.size} label="Marked for Review" cls="marked"/><State n={0} label="Answered & Marked for Review" cls="ansmarked"/></div><div className="palette-title">{subject}</div><div className="choose">Choose a Question</div><div className="qgrid">{filtered.map(x=><button key={x.number} className={status(x.number)} onClick={()=>jump(x.number)}>{x.number}</button>)}</div><button className="submit" onClick={()=>alert("Submission review screen would open here.")}>Submit</button></aside>
+    <aside className="palette">
+      <div className="candidate"><div className="avatar">◉</div><b>akill</b></div>
+      <div className="state-grid">
+        <State n={answeredCount} label="Answered" cls="answered"/>
+        <State n={notAnsweredCount} label="Not Answered" cls="notanswered"/>
+        <State n={notVisitedCount} label="Not Visited" cls="notvisited"/>
+        <State n={markedCount} label="Marked for Review" cls="marked"/>
+        <State n={0} label="Answered & Marked for Review" cls="ansmarked"/>
+      </div>
+      <div className="palette-title">{subject}</div>
+      <div className="choose">Choose a Question</div>
+      <div className="qgrid">{filtered.map(x=><button key={x.number} className={status(x.number)} onClick={()=>jump(x.number)}>{x.number}</button>)}</div>
+      <button className="submit" onClick={()=>setShowSubmitModal(true)}>Submit</button>
+    </aside>
    </div>
+
+   {showSubmitModal && (
+     <div className="submit-modal-overlay">
+       <div className="submit-modal-box">
+         <div className="submit-modal-header">
+           <h3>Exam Summary</h3>
+           <button className="close-btn" onClick={()=>setShowSubmitModal(false)}>✕</button>
+         </div>
+         <div className="submit-summary-grid">
+           <div className="summary-item">
+             <span className="summary-label">Total Questions</span>
+             <b className="summary-val">75</b>
+           </div>
+           <div className="summary-item">
+             <span className="summary-label">Answered</span>
+             <b className="summary-val text-green">{answeredCount}</b>
+           </div>
+           <div className="summary-item">
+             <span className="summary-label">Not Answered</span>
+             <b className="summary-val text-red">{notAnsweredCount}</b>
+           </div>
+           <div className="summary-item">
+             <span className="summary-label">Marked for Review</span>
+             <b className="summary-val text-purple">{markedCount}</b>
+           </div>
+           <div className="summary-item">
+             <span className="summary-label">Not Visited</span>
+             <b className="summary-val">{notVisitedCount}</b>
+           </div>
+         </div>
+         <p className="submit-note">Are you sure you want to submit? You cannot change your answers after submission.</p>
+         <div className="submit-actions">
+           <button className="btn-secondary" onClick={()=>setShowSubmitModal(false)}>Resume Test</button>
+           <button className="btn-primary" onClick={()=>nav("/analysis")}>Yes, Submit & View Analysis</button>
+         </div>
+       </div>
+     </div>
+   )}
  </div>
 }
 function State({n,label,cls}){return <div className="state"><span className={"status "+cls}>{n}</span><b>{label}</b></div>}

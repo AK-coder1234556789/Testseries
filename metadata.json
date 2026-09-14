@@ -1,0 +1,8 @@
+{
+  "name": "TestSeries",
+  "description": "Browser-based JEE PDF to CBT examination platform with NTA exam interface, question navigation, timer, test generation, and comprehensive post-test analysis.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
